@@ -1,5 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
-  // 1) THEME TOGGLE (guarded)
+document.addEventListener('DOMContentLoaded', function() {
+  // ------------------ THEME TOGGLE ------------------
   const toggle = document.getElementById('toggleTheme');
   if (toggle) {
     const currentTheme = localStorage.getItem('theme') || 'light';
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 2) FILTER BUTTONS
+  // ------------------ FILTERS ------------------
   let currentFilter = 'all';
   document.querySelectorAll('.filters button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3) CLOCK
+  // ------------------ CLOCK ------------------
   function updateTime() {
     const now = new Date();
     document.getElementById('currentTime').innerText =
@@ -31,18 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateTime, 1000);
   updateTime();
 
-  // 4) STORAGE HELPERS
+  // ------------------ STORAGE HELPERS ------------------
   const tasksKey = 'tasks';
-  function getTasks() { return JSON.parse(localStorage.getItem(tasksKey)) || []; }
-  function saveTasks(tasks) { localStorage.setItem(tasksKey, JSON.stringify(tasks)); }
+  function getTasks() {
+    return JSON.parse(localStorage.getItem(tasksKey)) || [];
+  }
+  function saveTasks(tasks) {
+    localStorage.setItem(tasksKey, JSON.stringify(tasks));
+  }
 
-  // 5) CORE ACTIONS
+  // ------------------ CORE FUNCTIONS ------------------
   function addTask() {
     const name = document.getElementById('taskName').value.trim();
     const date = document.getElementById('taskDate').value;
     const time = document.getElementById('taskTime').value;
     if (!name || !date || !time) {
-      return alert('Please fill all fields!');
+      alert('Please fill all fields!');
+      return;
     }
     const tasks = getTasks();
     tasks.push({ id: Date.now(), name, date, time, completed: false });
@@ -51,74 +56,95 @@ document.addEventListener('DOMContentLoaded', () => {
     closePopup();
     clearFields();
   }
+
   function deleteTask(id) {
-    saveTasks(getTasks().filter(t => t.id !== id));
-    renderTasks();
-  }
-  function toggleComplete(id) {
-    const tasks = getTasks();
-    const t = tasks.find(x => x.id === id);
-    t.completed = !t.completed;
+    const tasks = getTasks().filter(t => t.id !== id);
     saveTasks(tasks);
     renderTasks();
   }
+
+  function toggleComplete(id) {
+    const tasks = getTasks();
+    const task = tasks.find(t => t.id === id);
+    task.completed = !task.completed;
+    saveTasks(tasks);
+    renderTasks();
+  }
+
   function editTime(id) {
     const time = prompt("New time (HH:MM)", "11:00");
     const date = prompt("New date (YYYY-MM-DD)", new Date().toISOString().slice(0,10));
     if (time && date) {
       const tasks = getTasks();
-      const t = tasks.find(x => x.id === id);
-      t.time = time; t.date = date;
+      const task = tasks.find(t => t.id === id);
+      task.time = time;
+      task.date = date;
       saveTasks(tasks);
       renderTasks();
     }
   }
+
   function editName(id) {
-    const newName = prompt("Edit task name", getTasks().find(x => x.id===id).name);
+    const newName = prompt("Edit task name", getTasks().find(t => t.id === id).name);
     if (newName) {
       const tasks = getTasks();
-      tasks.find(x => x.id===id).name = newName;
+      const task = tasks.find(t => t.id === id);
+      task.name = newName;
       saveTasks(tasks);
       renderTasks();
     }
   }
+
   function clearAll() {
     if (confirm("Clear all tasks?")) {
       saveTasks([]);
       renderTasks();
     }
   }
+
   function formatTime(t) {
-    let [h,m] = t.split(':').map(Number);
-    const ampm = h>=12 ? 'PM' : 'AM';
-    if (h>12) h-=12;
-    if (h===0) h=12;
+    let [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
     return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
   }
+
   function formatDate(d) {
     const today = new Date().toDateString();
-    const sel = new Date(d).toDateString();
-    return today===sel ? 'Today' : new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-  }
-  function clearFields() {
-    ['taskName','taskDate','taskTime'].forEach(id=>document.getElementById(id).value = '');
+    const selected = new Date(d).toDateString();
+    if (today === selected) return "Today";
+    return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
-  // 6) RENDERER
+  function clearFields() {
+    document.getElementById('taskName').value = '';
+    document.getElementById('taskDate').value = '';
+    document.getElementById('taskTime').value = '';
+  }
+
+  // ------------------ RENDER TASKS ------------------
   function renderTasks() {
-    const all = getTasks();
-    const list = document.getElementById('tasks');
-    list.innerHTML = '';
-    all
-      .filter(t => currentFilter==='all' || (currentFilter==='completed')===t.completed || (currentFilter==='pending')===!t.completed)
+    const allTasks = getTasks();
+    const tasksContainer = document.getElementById('tasks');
+    tasksContainer.innerHTML = '';
+
+    allTasks
+      .filter(task => {
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'completed') return task.completed;
+        if (currentFilter === 'pending') return !task.completed;
+      })
       .forEach(task => {
-        const div = document.createElement('div');
-        div.className = 'task-item' + (task.completed ? ' completed' : '');
+        const taskDiv = document.createElement('div');
+        taskDiv.className = 'task-item' + (task.completed ? ' completed' : '');
+
         if (new Date(task.date).toDateString() === new Date().toDateString()) {
-          div.style.backgroundColor = 'var(--highlight)';
+          taskDiv.style.backgroundColor = 'var(--highlight)';
         }
-        div.innerHTML = `
-          <input type="checkbox" ${task.completed?'checked':''} onchange="toggleComplete(${task.id})">
+
+        taskDiv.innerHTML = `
+          <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})">
           <label ondblclick="editName(${task.id})">${task.name}</label>
           <div class="task-time" onclick="editTime(${task.id})">
             <span>${formatTime(task.time)}</span>
@@ -126,23 +152,32 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <button class="delete-btn" onclick="deleteTask(${task.id})">delete</button>
         `;
-        list.appendChild(div);
+        tasksContainer.appendChild(taskDiv);
       });
-    // update progress
-    document.getElementById('progress').innerText =
-      `${all.filter(t=>t.completed).length} of ${all.length} completed`;
+
+    // Update progress
+    const doneCount = allTasks.filter(t => t.completed).length;
+    document.getElementById('progress').innerText = `${doneCount} of ${allTasks.length} completed`;
   }
 
-  // 7) POPUP CONTROLS
-  window.openPopup  = () => document.getElementById('popup').style.display = 'flex';
-  window.closePopup = () => document.getElementById('popup').style.display = 'none';
-  window.addTask     = addTask;
-  window.deleteTask  = deleteTask;
-  window.toggleComplete = toggleComplete;
-  window.editTime    = editTime;
-  window.editName    = editName;
-  window.clearAll    = clearAll;
+  // ------------------ POPUP FUNCTIONS ------------------
+  function openPopup() {
+    document.getElementById('popup').style.display = 'flex';
+  }
+  function closePopup() {
+    document.getElementById('popup').style.display = 'none';
+  }
 
-  // initial render
+  // ------------------ BIND EVENTS ------------------
+  document.getElementById('doneButton').addEventListener('click', addTask);
+  window.openPopup = openPopup;
+  window.closePopup = closePopup;
+  window.deleteTask = deleteTask;
+  window.toggleComplete = toggleComplete;
+  window.editTime = editTime;
+  window.editName = editName;
+  window.clearAll = clearAll;
+
+  // ------------------ INITIALIZE ------------------
   renderTasks();
 });
